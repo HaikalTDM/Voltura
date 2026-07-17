@@ -8,7 +8,8 @@ import Layout from '../layouts/Layout.astro';
       <h2>Active Court — <span id="round-label"></span></h2>
       <div id="court-content" class="empty-state">Add 4+ players in Roster to start</div>
       <div class="row mt" style="gap:0.5rem;display:none" id="court-actions">
-        <button id="btn-finish" class="primary full">Finish Game</button>
+        <button id="btn-finish" class="primary" style="flex:1">Finish Game</button>
+        <button id="btn-undo" class="small" style="display:none">Undo</button>
       </div>
     </section>
 
@@ -192,6 +193,7 @@ import Layout from '../layouts/Layout.astro';
     renderBench();
     const endCard = document.getElementById('card-end');
     endCard.style.display = (s && s.matches && s.matches.length > 0) ? '' : 'none';
+    document.getElementById('btn-undo').style.display = (s && s.matches && s.matches.length > 0) ? '' : 'none';
   }
 
   function renderCourt() {
@@ -342,8 +344,11 @@ import Layout from '../layouts/Layout.astro';
     const changeA = Math.round(K * (actualA - expectedA));
     const changeB = -changeA;
 
+    s.matches.push({
+      teamA: [...teamA], teamB: [...teamB], scoreA, scoreB,
+      changeA, changeB, actualA
+    });
     teamA.forEach((n) => {
-      s.ratings[n] += changeA;
       const st = s.playerStats[n];
       st.gamesPlayed = (st.gamesPlayed || 0) + 1;
       if (actualA) st.wins++; else st.losses++;
@@ -358,6 +363,29 @@ import Layout from '../layouts/Layout.astro';
     s.scheduleIdx = (s.scheduleIdx || 0) + 1;
     ensureSchedule();
     closeScoreModal();
+    persist();
+  }
+
+  function undoLast() {
+    if (!s || s.matches.length === 0) return;
+    const last = s.matches.pop();
+    const { teamA, teamB, changeA, changeB, actualA } = last;
+
+    teamA.forEach((n) => {
+      s.ratings[n] -= changeA;
+      const st = s.playerStats[n];
+      st.gamesPlayed = Math.max(0, (st.gamesPlayed || 1) - 1);
+      if (actualA) st.wins = Math.max(0, st.wins - 1); else st.losses = Math.max(0, st.losses - 1);
+    });
+    teamB.forEach((n) => {
+      s.ratings[n] -= changeB;
+      const st = s.playerStats[n];
+      st.gamesPlayed = Math.max(0, (st.gamesPlayed || 1) - 1);
+      if (!actualA) st.wins = Math.max(0, st.wins - 1); else st.losses = Math.max(0, st.losses - 1);
+    });
+
+    s.scheduleIdx = Math.max(0, (s.scheduleIdx || 0) - 1);
+    s.activeMatch = s.schedule[s.scheduleIdx];
     persist();
   }
 
@@ -445,6 +473,7 @@ import Layout from '../layouts/Layout.astro';
   refresh();
   document.body.classList.add('ready');
   document.getElementById('btn-finish').addEventListener('click', openScoreModal);
+  document.getElementById('btn-undo').addEventListener('click', undoLast);
   document.getElementById('btn-export-schedule').addEventListener('click', exportSchedule);
   document.getElementById('btn-cancel-score').addEventListener('click', closeScoreModal);
   document.getElementById('btn-save-score').addEventListener('click', saveScore);

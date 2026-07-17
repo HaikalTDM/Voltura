@@ -15,10 +15,13 @@ import Layout from '../layouts/Layout.astro';
 
     <section class="card" id="card-quick" style="display:none">
       <h2>Quick Actions</h2>
-      <div class="row" style="gap:0.5rem">
-        <button id="btn-shuffle-queue" class="small" style="flex:1">Shuffle Queue</button>
+      <div class="row" style="gap:0.5rem;flex-wrap:wrap">
+        <button id="btn-shuffle-queue" class="small" style="flex:1">Shuffle</button>
+        <button id="btn-save-template" class="small" style="flex:1">Save Roster</button>
+        <button id="btn-load-template" class="small" style="flex:1">Load Roster</button>
         <button id="btn-clear-roster" class="small danger" style="flex:1">Clear All</button>
       </div>
+      <div id="templates-list" style="display:none;margin-top:0.5rem"></div>
     </section>
   </main>
   <input type="file" id="photo-input" accept="image/*" style="display:none" />
@@ -222,10 +225,61 @@ import Layout from '../layouts/Layout.astro';
     persist();
   }
 
+  const TMPL_KEY = 'voltura_templates';
+  function loadTemplates() { try { return JSON.parse(localStorage.getItem(TMPL_KEY)) || []; } catch { return []; } }
+  function saveTemplates(t) { localStorage.setItem(TMPL_KEY, JSON.stringify(t)); }
+
+  function saveTemplate() {
+    if (s.players.length === 0) { Voltura.toast('No players to save'); return; }
+    const name = prompt('Template name (e.g. "Friday crew"):');
+    if (!name || !name.trim()) return;
+    const templates = loadTemplates();
+    templates.push({ name: name.trim(), players: s.players.map((p) => p.name) });
+    saveTemplates(templates);
+    Voltura.toast(`Saved "${name.trim()}"`);
+  }
+
+  function showTemplates() {
+    const templates = loadTemplates();
+    const el = document.getElementById('templates-list');
+    if (templates.length === 0) { Voltura.toast('No saved rosters'); return; }
+
+    const visible = el.style.display !== 'none';
+    if (visible) { el.style.display = 'none'; return; }
+
+    el.style.display = '';
+    let html = '';
+    templates.forEach((t, i) => {
+      html += `<div class="row-between" style="padding:0.3rem 0;font-size:0.8rem;border-bottom:1px solid var(--border)">
+        <span style="color:var(--text)">${t.name} <span style="color:var(--text-dim);font-size:0.65rem">(${t.players.length}p)</span></span>
+        <button class="small load-tmpl" data-idx="${i}">Add</button>
+      </div>`;
+    });
+    el.innerHTML = html;
+
+    el.querySelectorAll('.load-tmpl').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tmpl = templates[Number(btn.dataset.idx)];
+        tmpl.players.forEach((name) => {
+          if (!s.players.find((p) => p.name === name)) {
+            s.players.push({ name, paid: false, left: false });
+            s.queue.push(name);
+            s.ratings[name] = 1000;
+            s.playerStats[name] = { wins: 0, losses: 0 };
+          }
+        });
+        s.schedule = null; s.scheduleIdx = null; s.activeMatch = null;
+        persist();
+      });
+    });
+  }
+
   refresh();
   document.body.classList.add('ready');
   document.getElementById('btn-add').addEventListener('click', addPlayer);
   document.getElementById('player-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') addPlayer(); });
   document.getElementById('btn-clear-roster').addEventListener('click', clearAll);
   document.getElementById('btn-shuffle-queue').addEventListener('click', shuffleQueue);
+  document.getElementById('btn-save-template').addEventListener('click', saveTemplate);
+  document.getElementById('btn-load-template').addEventListener('click', showTemplates);
 </script>

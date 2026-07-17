@@ -12,6 +12,19 @@
   --nav-height: 4rem;
 }
 
+[data-theme="light"] {
+  --bg: #F5F5F5;
+  --surface: #FFFFFF;
+  --border: #E0E0E0;
+  --volt: #D4A800;
+  --volt-glow: rgba(180, 140, 0, 0.2);
+  --volt-dim: rgba(180, 140, 0, 0.06);
+  --text: #111111;
+  --text-dim: #888888;
+  --danger: #D32F2F;
+  --success: #2E7D32;
+}
+
 *,
 *::before,
 *::after {
