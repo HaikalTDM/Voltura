@@ -48,7 +48,7 @@ import Layout from '../layouts/Layout.astro';
   function persist() { save(s); render(); }
 
   function totalCost() { return (Number(s.courtCost) || 0) + (Number(s.gearCost) || 0); }
-  function perPerson() { return s.players.length > 0 ? Math.ceil(totalCost() / s.players.length) : 0; }
+  function perPerson() { const n = s.players.length; const t = totalCost(); return n > 0 ? Math.ceil(t * 100 / n) / 100 : 0; }
   function paidCount() { return s.players.filter((p) => p.paid).length; }
   function collected() { return paidCount() * perPerson(); }
   function remaining() { return totalCost() - collected(); }

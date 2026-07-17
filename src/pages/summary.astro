@@ -42,7 +42,7 @@ import Layout from '../layouts/Layout.astro';
   }
 
   function totalCost(s) { return (Number(s.courtCost) || 0) + (Number(s.gearCost) || 0); }
-  function perPerson(s) { return s.players.length > 0 ? Math.ceil(totalCost(s) / s.players.length) : 0; }
+  function perPerson(s) { const n = s.players.length; const t = totalCost(s); return n > 0 ? Math.ceil(t * 100 / n) / 100 : 0; }
   function paidCount(s) { return s.players.filter((p) => p.paid).length; }
   function collected(s) { return paidCount(s) * perPerson(s); }
   function remaining(s) { return totalCost(s) - collected(s); }

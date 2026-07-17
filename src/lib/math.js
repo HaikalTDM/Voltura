@@ -12,7 +12,8 @@ export function paidCount(session) {
 
 export function perPerson(session) {
   const n = playerCount(session);
-  return n > 0 ? Math.ceil(totalCost(session) / n) : 0;
+  const t = totalCost(session);
+  return n > 0 ? Math.ceil(t * 100 / n) / 100 : 0;
 }
 
 export function collected(session) {
