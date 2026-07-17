@@ -123,6 +123,9 @@ import Layout from '../layouts/Layout.astro';
     if (s.scheduleIdx >= s.schedule.length && s.schedule.length > 0) {
       const counts = {};
       names.forEach((n) => { counts[n] = 0; });
+      (s.matches || []).forEach((m) => {
+        [...m.teamA, ...m.teamB].forEach((n) => { if (counts[n] !== undefined) counts[n]++; });
+      });
       s.schedule.forEach((r) => {
         [...r.teamA, ...r.teamB].forEach((n) => { if (counts[n] !== undefined) counts[n]++; });
       });
@@ -140,6 +143,9 @@ import Layout from '../layouts/Layout.astro';
       const target = calcRounds(s.sessionDuration || 180);
       const counts = {};
       names.forEach((n) => { counts[n] = 0; });
+      (s.matches || []).forEach((m) => {
+        [...m.teamA, ...m.teamB].forEach((n) => { if (counts[n] !== undefined) counts[n]++; });
+      });
       while (s.schedule.length < target) {
         const sorted = shuffle(names).sort((a, b) => (counts[a] || 0) - (counts[b] || 0));
         const pick = sorted.slice(0, 4);

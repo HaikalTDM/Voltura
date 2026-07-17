@@ -144,7 +144,11 @@ import Layout from '../layouts/Layout.astro';
         delete s.playerStats[name];
         delete photos[name];
         savePhotos(photos);
-        s.schedule = null; s.scheduleIdx = null; s.activeMatch = null;
+        if (s.schedule && (s.scheduleIdx || 0) > 0) {
+          s.schedule = s.schedule.slice(0, s.scheduleIdx);
+        } else {
+          s.schedule = null; s.scheduleIdx = null; s.activeMatch = null;
+        }
         persist();
       });
     });
@@ -158,7 +162,11 @@ import Layout from '../layouts/Layout.astro';
     s.queue.push(name);
     s.ratings[name] = 1000;
     s.playerStats[name] = { wins: 0, losses: 0 };
-    s.schedule = null; s.scheduleIdx = null; s.activeMatch = null;
+    if (s.schedule && (s.scheduleIdx || 0) > 0) {
+      s.schedule = s.schedule.slice(0, s.scheduleIdx);
+    } else {
+      s.schedule = null; s.scheduleIdx = null; s.activeMatch = null;
+    }
     input.value = '';
     persist();
   }
