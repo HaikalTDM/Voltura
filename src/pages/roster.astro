@@ -1,0 +1,184 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout>
+  <main class="page-content">
+    <section class="card">
+      <h2>Roster</h2>
+      <div class="row mb">
+        <input type="text" id="player-input" placeholder="Player name" autocomplete="off" />
+        <button id="btn-add">Add</button>
+      </div>
+      <div id="roster-content" class="empty-state">No players yet</div>
+    </section>
+
+    <section class="card" id="card-quick" style="display:none">
+      <h2>Quick Actions</h2>
+      <div class="row" style="gap:0.5rem">
+        <button id="btn-shuffle-queue" class="small" style="flex:1">Shuffle Queue</button>
+        <button id="btn-clear-roster" class="small danger" style="flex:1">Clear All</button>
+      </div>
+    </section>
+  </main>
+  <input type="file" id="photo-input" accept="image/*" capture="user" style="display:none" />
+</Layout>
+
+<script>
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+    );
+  }
+
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  const KEY = 'voltura_session';
+  const PHOTO_KEY = 'voltura_photos';
+  function load() { const r = localStorage.getItem(KEY); return r ? JSON.parse(r) : null; }
+  function save(s) { localStorage.setItem(KEY, JSON.stringify(s)); }
+  function loadPhotos() { const r = localStorage.getItem(PHOTO_KEY); return r ? JSON.parse(r) : {}; }
+  function savePhotos(p) { localStorage.setItem(PHOTO_KEY, JSON.stringify(p)); }
+  function blank() {
+    return { id: Date.now().toString(), date: new Date().toISOString(), courtCost: 0, gearCost: 0, players: [], queue: [], activeMatch: null, matches: [], ratings: {}, playerStats: {}, schedule: null, scheduleIdx: null, sessionDuration: 180, status: 'active' };
+  }
+
+  let s = null;
+  let photos = {};
+
+  function refresh() {
+    s = load();
+    if (!s) s = blank();
+    photos = loadPhotos();
+    render();
+  }
+
+  function persist() { save(s); render(); }
+
+  function resizePhoto(file, name) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const size = 80;
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const min = Math.min(img.width, img.height);
+        const sx = (img.width - min) / 2;
+        const sy = (img.height - min) / 2;
+        ctx.drawImage(img, sx, sy, min, min, 0, 0, size, size);
+        resolve(canvas.toDataURL('image/jpeg', 0.6));
+      };
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
+  async function capturePhoto(name) {
+    const input = document.getElementById('photo-input');
+    input.onchange = async () => {
+      const file = input.files[0];
+      if (!file) return;
+      photos[name] = await resizePhoto(file, name);
+      savePhotos(photos);
+      render();
+      input.value = '';
+    };
+    input.click();
+  }
+
+  function render() {
+    const el = document.getElementById('roster-content');
+    const quick = document.getElementById('card-quick');
+    const players = s.players;
+
+    if (players.length === 0) {
+      el.classList.add('empty-state');
+      el.textContent = 'No players yet';
+      quick.style.display = 'none';
+      return;
+    }
+
+    el.classList.remove('empty-state');
+    quick.style.display = '';
+
+    let inMatch = [];
+    if (s.activeMatch) inMatch = [...s.activeMatch.teamA, ...s.activeMatch.teamB];
+
+    const colors = ['#FFD700','#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FFEAA7','#DDA0DD','#98D8C8'];
+
+    let html = '<ul class="player-list">';
+    players.forEach((p) => {
+      const locked = inMatch.includes(p.name);
+      const pic = photos[p.name];
+      const ci = p.name.charCodeAt(0) % colors.length;
+      html += `<li>
+        <button class="photo-btn" data-name="${esc(p.name)}" style="width:32px;height:32px;border-radius:50%;padding:0;overflow:hidden;border:1px solid var(--border);background:${pic ? 'var(--bg)' : colors[ci]};flex-shrink:0;cursor:pointer;color:#0A0A0A;font-weight:700;font-size:14px;text-transform:uppercase;display:flex;align-items:center;justify-content:center">
+          ${pic ? `<img src="${pic}" style="width:100%;height:100%;object-fit:cover" />` : p.name[0]}
+        </button>
+        <span class="name">${esc(p.name)}</span>
+        <span class="rating-badge">${s.ratings[p.name] || 1000}</span>
+        <span style="flex:1"></span>
+        <button class="remove-btn" data-name="${esc(p.name)}" ${locked ? 'disabled title="On court — finish game first"' : ''}>${locked ? '' : '\u00d7'}</button>
+      </li>`;
+    });
+    html += '</ul>';
+    el.innerHTML = html;
+
+    el.querySelectorAll('.photo-btn').forEach((btn) => {
+      btn.addEventListener('click', () => capturePhoto(btn.dataset.name));
+    });
+
+    el.querySelectorAll('.remove-btn:not([disabled])').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const name = btn.dataset.name;
+        s.players = s.players.filter((p) => p.name !== name);
+        s.queue = s.queue.filter((n) => n !== name);
+        delete s.ratings[name];
+        delete s.playerStats[name];
+        delete photos[name];
+        savePhotos(photos);
+        s.schedule = null; s.scheduleIdx = null; s.activeMatch = null;
+        persist();
+      });
+    });
+  }
+
+  function addPlayer() {
+    const input = document.getElementById('player-input');
+    const name = input.value.trim();
+    if (!name) return;
+    s.players.push({ name, paid: false });
+    s.queue.push(name);
+    s.ratings[name] = 1000;
+    s.playerStats[name] = { wins: 0, losses: 0 };
+    s.schedule = null; s.scheduleIdx = null; s.activeMatch = null;
+    input.value = '';
+    persist();
+  }
+
+  async function clearAll() {
+    if (!(await Voltura.confirm('Remove all players?'))) return;
+    s = blank();
+    photos = {};
+    savePhotos(photos);
+    persist();
+  }
+
+  function shuffleQueue() {
+    s.queue = shuffle(s.queue);
+    persist();
+  }
+
+  refresh();
+  document.getElementById('btn-add').addEventListener('click', addPlayer);
+  document.getElementById('player-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') addPlayer(); });
+  document.getElementById('btn-clear-roster').addEventListener('click', clearAll);
+  document.getElementById('btn-shuffle-queue').addEventListener('click', shuffleQueue);
+</script>

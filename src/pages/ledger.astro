@@ -1,0 +1,109 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout>
+  <main class="page-content">
+    <section class="card">
+      <h2>Session Costs</h2>
+      <div class="cost-row">
+        <div>
+          <label>Court (RM)</label>
+          <input type="number" id="cost-court" min="0" step="1" value="0" />
+        </div>
+        <div>
+          <label>Gear (RM)</label>
+          <input type="number" id="cost-gear" min="0" step="1" value="0" />
+        </div>
+      </div>
+      <div id="cost-summary" class="summary" style="display:none"></div>
+    </section>
+
+    <section class="card">
+      <h2>Payments</h2>
+      <div id="ledger-list" class="empty-state" style="padding:1.5rem 0">Add players in Roster to start tracking</div>
+    </section>
+  </main>
+</Layout>
+
+<script>
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+    );
+  }
+
+  const KEY = 'voltura_session';
+  function load() { const r = localStorage.getItem(KEY); return r ? JSON.parse(r) : null; }
+  function save(s) { localStorage.setItem(KEY, JSON.stringify(s)); }
+
+  let s = null;
+
+  function refresh() {
+    s = load();
+    if (!s) return;
+    render();
+  }
+
+  function persist() { save(s); render(); }
+
+  function totalCost() { return (Number(s.courtCost) || 0) + (Number(s.gearCost) || 0); }
+  function perPerson() { return s.players.length > 0 ? Math.ceil(totalCost() / s.players.length) : 0; }
+  function paidCount() { return s.players.filter((p) => p.paid).length; }
+  function collected() { return paidCount() * perPerson(); }
+  function remaining() { return totalCost() - collected(); }
+
+  function render() {
+    document.getElementById('cost-court').value = s.courtCost || 0;
+    document.getElementById('cost-gear').value = s.gearCost || 0;
+
+    const summaryEl = document.getElementById('cost-summary');
+    const listEl = document.getElementById('ledger-list');
+    const players = s.players;
+
+    if (players.length === 0) {
+      summaryEl.style.display = 'none';
+      listEl.classList.add('empty-state');
+      listEl.textContent = 'Add players in Roster to start tracking';
+      return;
+    }
+
+    const tc = totalCost();
+    const pp = perPerson();
+    const pc = paidCount();
+    const col = collected();
+    const rem = remaining();
+
+    summaryEl.style.display = '';
+    summaryEl.innerHTML = `
+      Total <span class="inline-amount">RM ${tc}</span>
+      &nbsp;|&nbsp; Per <span class="inline-amount">RM ${pp}</span>
+      &nbsp;|&nbsp; Paid <span class="inline-amount">${pc}/${players.length}</span>
+      <br />
+      Remaining <span class="inline-amount" style="${rem > 0 ? 'color:var(--danger)' : 'color:var(--success)'}">RM ${rem}</span>`;
+
+    listEl.classList.remove('empty-state');
+    let html = '<ul class="checklist">';
+    players.forEach((p, i) => {
+      const cls = p.paid ? ' paid' : '';
+      html += `<li class="${cls}">
+        <input type="checkbox" data-player-idx="${i}" ${p.paid ? 'checked' : ''} />
+        <span class="name">${esc(p.name)}</span>
+        <span style="margin-left:auto;font-size:0.75rem;color:var(--text-dim)">RM ${pp}</span>
+      </li>`;
+    });
+    html += '</ul>';
+    listEl.innerHTML = html;
+
+    listEl.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+      cb.addEventListener('change', () => {
+        s.players[Number(cb.dataset.playerIdx)].paid = cb.checked;
+        persist();
+      });
+    });
+  }
+
+  refresh();
+  document.getElementById('cost-court').addEventListener('input', (e) => { s.courtCost = Number(e.target.value) || 0; persist(); });
+  document.getElementById('cost-gear').addEventListener('input', (e) => { s.gearCost = Number(e.target.value) || 0; persist(); });
+</script>

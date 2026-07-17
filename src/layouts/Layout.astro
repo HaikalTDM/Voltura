@@ -1,0 +1,104 @@
+---
+import '../styles/global.css';
+const path = Astro.url.pathname.replace(/\/+$/, '') || '/';
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#0A0A0A" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <title>Voltura</title>
+</head>
+<body>
+  <header>
+    <h1>Voltura</h1>
+  </header>
+
+  <slot />
+
+  <nav class="bottom-nav">
+    <a href="/" class={`nav-item${path === '/' ? ' active' : ''}`}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+        <rect x="2" y="7" width="20" height="12" rx="1.5" />
+        <line x1="12" y1="7" x2="12" y2="19" />
+        <line x1="2" y1="13" x2="22" y2="13" stroke-width="1" opacity="0.3" />
+      </svg>
+      <span>Court</span>
+    </a>
+
+    <a href="/roster" class={`nav-item${path === '/roster' ? ' active' : ''}`}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="7" r="3" />
+        <path d="M3 21v-1a5 5 0 015-5h2a5 5 0 015 5v1" />
+        <circle cx="17" cy="7" r="2" />
+        <path d="M14 17h6a2 2 0 012 2v2" />
+      </svg>
+      <span>Roster</span>
+    </a>
+
+    <a href="/ledger" class={`nav-item${path === '/ledger' ? ' active' : ''}`}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+        <rect x="3" y="2" width="18" height="20" rx="2" />
+        <line x1="8" y1="6" x2="16" y2="6" />
+        <line x1="8" y1="10" x2="16" y2="10" />
+        <line x1="8" y1="14" x2="13" y2="14" />
+      </svg>
+      <span>Ledger</span>
+    </a>
+
+    <a href="/summary" class={`nav-item${path === '/summary' ? ' active' : ''}`}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H8a2 2 0 00-2 2v16a2 2 0 002 2h10a2 2 0 002-2V6l-4-4z" />
+        <polyline points="14,2 14,6 18,6" />
+        <polyline points="8,13 11,16 16,9" />
+      </svg>
+      <span>Summary</span>
+    </a>
+  </nav>
+
+  <div id="voltura-toast-container" style="position:fixed;top:0;left:0;right:0;z-index:200;display:flex;flex-direction:column;align-items:center;gap:0.35rem;padding:0.5rem;pointer-events:none"></div>
+
+  <div class="modal-overlay" id="voltura-confirm-overlay">
+    <div class="modal">
+      <div id="voltura-confirm-msg" style="margin-bottom:1rem;font-size:0.9rem;text-align:center;color:var(--text)"></div>
+      <div class="modal-actions">
+        <button id="voltura-confirm-no">Cancel</button>
+        <button id="voltura-confirm-yes" class="primary">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
+
+    window.Voltura = {
+      toast(msg) {
+        const el = document.createElement('div');
+        el.className = 'voltura-toast';
+        el.textContent = msg;
+        document.getElementById('voltura-toast-container').appendChild(el);
+        requestAnimationFrame(() => el.classList.add('show'));
+        setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 2500);
+      },
+      confirm(msg) {
+        return new Promise((resolve) => {
+          const overlay = document.getElementById('voltura-confirm-overlay');
+          document.getElementById('voltura-confirm-msg').textContent = msg;
+          overlay.classList.add('open');
+          const cleanup = (val) => { overlay.classList.remove('open'); resolve(val); };
+          document.getElementById('voltura-confirm-yes').onclick = () => cleanup(true);
+          document.getElementById('voltura-confirm-no').onclick = () => cleanup(false);
+          overlay.onclick = (e) => { if (e.target === overlay) cleanup(false); };
+        });
+      }
+    };
+  </script>
+</body>
+</html>

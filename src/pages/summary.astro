@@ -1,0 +1,228 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout>
+  <main class="page-content">
+    <section class="card" id="card-summary">
+      <h2>Session Summary</h2>
+      <div id="summary-content" class="empty-state">No games played yet</div>
+      <div id="summary-actions" style="display:none">
+        <pre class="wrap-up" id="wrap-up-text" style="margin-bottom:0.75rem"></pre>
+        <div class="row" style="gap:0.5rem">
+          <button id="btn-copy" class="primary" style="flex:1">Copy to Clipboard</button>
+          <button id="btn-new-session" class="danger">End &amp; New</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="card-podium" style="display:none">
+      <h2>Podium</h2>
+      <div id="podium-content"></div>
+    </section>
+
+    <section class="card" id="card-history" style="display:none">
+      <h2>Past Sessions</h2>
+      <div id="history-content"></div>
+    </section>
+  </main>
+</Layout>
+
+<script>
+  const KEY = 'voltura_session';
+  const HIST_KEY = 'voltura_history';
+
+  function load() { const r = localStorage.getItem(KEY); return r ? JSON.parse(r) : null; }
+  function save(s) { localStorage.setItem(KEY, JSON.stringify(s)); }
+  function loadHistory() { const r = localStorage.getItem(HIST_KEY); return r ? JSON.parse(r) : []; }
+  function saveHistory(h) { localStorage.setItem(HIST_KEY, JSON.stringify(h)); }
+
+  function blank() {
+    return { id: Date.now().toString(), date: new Date().toISOString(), courtCost: 0, gearCost: 0, players: [], queue: [], activeMatch: null, matches: [], ratings: {}, playerStats: {}, schedule: null, scheduleIdx: null, sessionDuration: 180, status: 'active' };
+  }
+
+  function totalCost(s) { return (Number(s.courtCost) || 0) + (Number(s.gearCost) || 0); }
+  function perPerson(s) { return s.players.length > 0 ? Math.ceil(totalCost(s) / s.players.length) : 0; }
+  function paidCount(s) { return s.players.filter((p) => p.paid).length; }
+  function collected(s) { return paidCount(s) * perPerson(s); }
+  function remaining(s) { return totalCost(s) - collected(s); }
+
+  let s = null;
+
+  function refresh() {
+    s = load();
+    render();
+    renderHistory();
+  }
+
+  function persist() { save(s); render(); }
+
+  function render() {
+    const content = document.getElementById('summary-content');
+    const actions = document.getElementById('summary-actions');
+
+    if (!s || s.matches.length === 0) {
+      content.style.display = '';
+      content.classList.add('empty-state');
+      content.textContent = 'No games played yet';
+      actions.style.display = 'none';
+      return;
+    }
+
+    content.style.display = 'none';
+    actions.style.display = '';
+
+    const tc = totalCost(s);
+    const pp = perPerson(s);
+    const pc = paidCount(s);
+    const rem = remaining(s);
+    const date = new Date(s.date).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
+    const nameList = s.players.map((p) => p.name).join(', ');
+
+    const sorted = s.players
+      .map((p) => ({
+        name: p.name,
+        rating: s.ratings[p.name] || 1000,
+        change: (s.ratings[p.name] || 1000) - 1000,
+        wins: (s.playerStats[p.name] && s.playerStats[p.name].wins) || 0,
+        losses: (s.playerStats[p.name] && s.playerStats[p.name].losses) || 0
+      }))
+      .sort((a, b) => b.rating - a.rating);
+
+    const mvp = sorted[0];
+    const mvpLine = mvp ? `MVP: ${mvp.name} (${mvp.rating}) \u2014 ${mvp.wins}W ${mvp.losses}L` : '';
+    const sign = (n) => (n >= 0 ? '+' : '');
+    const pad = (str, len) => { let o = String(str); while (o.length < len) o += ' '; return o; };
+
+    let statsTable = '';
+    if (sorted.some((p) => p.wins + p.losses > 0)) {
+      statsTable = [
+        ``,
+        `--- Player Stats ---`,
+        ...sorted.map((p) => `${pad(p.name, 12)} ${pad(p.wins + '-' + p.losses, 6)} ${p.rating} (${sign(p.change)}${p.change})`)
+      ].join('\n');
+    }
+
+    const text = [
+      `Voltura Session  \u2014  ${date}`,
+      ``,
+      `${s.players.length} players  |  ${s.matches.length} game${s.matches.length !== 1 ? 's' : ''} played`,
+      mvpLine,
+      statsTable,
+      ``,
+      `Court  RM ${s.courtCost || 0}`,
+      `Gear   RM ${s.gearCost || 0}`,
+      `\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500`,
+      `Total  RM ${tc}  |  ~RM ${pp}/person`,
+      ``,
+      `Paid ${pc}/${s.players.length}  |  Remaining RM ${rem}`,
+      ``,
+      `Players: ${nameList}`
+    ].filter(Boolean).join('\n');
+
+    document.getElementById('wrap-up-text').textContent = text;
+    renderPodium(sorted);
+  }
+
+  function renderPodium(sorted) {
+    const card = document.getElementById('card-podium');
+    const el = document.getElementById('podium-content');
+    if (!sorted || sorted.length < 3) { card.style.display = 'none'; return; }
+    card.style.display = '';
+
+    const PHOTO_KEY = 'voltura_photos';
+    const photos = (() => { try { return JSON.parse(localStorage.getItem(PHOTO_KEY)) || {}; } catch { return {}; } })();
+    const photo = (name) => {
+      const p = photos[name];
+      if (p) return `<span style="display:inline-block;width:36px;height:36px;border-radius:50%;overflow:hidden;border:1px solid var(--border);flex-shrink:0;margin-bottom:4px"><img src="${p}" style="width:100%;height:100%;object-fit:cover" /></span>`;
+      const colors = ['#FFD700','#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FFEAA7','#DDA0DD','#98D8C8'];
+      const ci = name.charCodeAt(0) % colors.length;
+      return `<span style="display:inline-block;width:36px;height:36px;border-radius:50%;overflow:hidden;border:1px solid var(--border);flex-shrink:0;margin-bottom:4px;background:${colors[ci]};color:#0A0A0A;font-weight:700;font-size:16px;text-align:center;line-height:36px;text-transform:uppercase">${name[0]}</span>`;
+    };
+
+    const sign = (n) => (n >= 0 ? '+' : '');
+    const top3 = sorted.slice(0, 3);
+    const heights = ['64px', '48px', '36px'];
+    const colors = ['var(--volt)', '#C0C0C0', '#CD7F32'];
+
+    let html = '<div style="display:flex;align-items:flex-end;justify-content:center;gap:0.75rem;padding:1rem 0">';
+    top3.forEach((p, i) => {
+      html += `<div style="text-align:center;display:flex;flex-direction:column;align-items:center;min-width:80px">
+        ${photo(p.name)}
+        <div style="font-weight:700;font-size:0.85rem;margin-top:2px;color:var(--text)">${p.name}</div>
+        <div style="font-size:0.65rem;color:var(--text-dim)">${sign(p.change)}${p.change}</div>
+        <div style="font-size:0.7rem;color:var(--volt);font-weight:700">${p.wins}W ${p.losses}L</div>
+        <div style="width:100%;background:${colors[i]};height:${heights[i]};margin-top:4px;display:flex;align-items:center;justify-content:center;color:var(--bg);font-weight:800;font-size:0.7rem">${['1st','2nd','3rd'][i]}</div>
+      </div>`;
+    });
+    html += '</div>';
+    el.innerHTML = html;
+  }
+
+  function renderHistory() {
+    const card = document.getElementById('card-history');
+    const el = document.getElementById('history-content');
+    const history = loadHistory();
+
+    if (history.length === 0) { card.style.display = 'none'; return; }
+    card.style.display = '';
+
+    let html = '<ul class="player-list">';
+    history.slice().reverse().forEach((h, i) => {
+      const realIdx = history.length - 1 - i;
+      const date = new Date(h.date).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
+      const players = h.players ? h.players.length : 0;
+      const games = h.matches ? h.matches.length : 0;
+      let mvpName = '';
+      if (h.playerStats) {
+        const best = Object.entries(h.playerStats).sort((a, b) => (b[1].wins || 0) - (a[1].wins || 0))[0];
+        if (best) mvpName = best[0];
+      }
+      html += `<li style="cursor:default">
+        <span style="flex:1;font-size:0.82rem">
+          <span style="color:var(--text)">${date}</span>
+          <span style="color:var(--text-dim)"> \u00b7 ${players}p \u00b7 ${games}g</span>
+          ${mvpName ? `<span style="color:var(--volt);font-size:0.7rem"> \u00b7 MVP ${mvpName}</span>` : ''}
+        </span>
+        <button class="small" data-restore="${realIdx}" style="margin-left:0.5rem">Restore</button>
+      </li>`;
+    });
+    html += '</ul>';
+    el.innerHTML = html;
+
+    el.querySelectorAll('[data-restore]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!(await Voltura.confirm('Restore this session? Current session will be saved to history.'))) return;
+        const history = loadHistory();
+        const idx = Number(btn.dataset.restore);
+        const restored = history.splice(idx, 1)[0];
+        if (s && s.matches.length > 0) history.push(s);
+        saveHistory(history);
+        s = restored;
+        persist();
+        renderHistory();
+      });
+    });
+  }
+
+  refresh();
+
+  document.getElementById('btn-copy').addEventListener('click', () => {
+    const text = document.getElementById('wrap-up-text').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('btn-copy');
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy to Clipboard'; }, 1500);
+    });
+  });
+
+  document.getElementById('btn-new-session').addEventListener('click', async () => {
+    if (!(await Voltura.confirm('End session and start a new one? The current session will be saved to history.'))) return;
+    const history = loadHistory();
+    history.push(s);
+    saveHistory(history);
+    s = blank();
+    persist();
+    renderHistory();
+  });
+</script>

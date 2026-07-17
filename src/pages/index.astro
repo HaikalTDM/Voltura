@@ -1,0 +1,463 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout>
+  <main class="page-content">
+    <section class="card" id="card-court">
+      <h2>Active Court — <span id="round-label"></span></h2>
+      <div id="court-content" class="empty-state">Add 4+ players in Roster to start</div>
+      <div class="row mt" style="gap:0.5rem;display:none" id="court-actions">
+        <button id="btn-finish" class="primary full">Finish Game</button>
+      </div>
+    </section>
+
+    <section class="card" id="card-settings" style="display:none">
+      <h2>Session Length</h2>
+      <div class="row" style="align-items:center;gap:0.5rem">
+        <input type="number" id="session-duration" min="10" max="480" step="5" value="180" style="flex:1" />
+        <span style="font-size:0.75rem;color:var(--text-dim);white-space:nowrap">min</span>
+        <button id="btn-set-duration" class="small" style="white-space:nowrap">Set</button>
+        <button id="btn-edit-duration" class="small" style="display:none;white-space:nowrap">Edit</button>
+      </div>
+    </section>
+
+    <section class="card" id="card-schedule" style="display:none">
+      <h2>Schedule <span id="schedule-duration" style="font-weight:400;letter-spacing:0;text-transform:none;color:var(--text-dim)"></span></h2>
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <div id="schedule-content" style="flex:1"></div>
+      </div>
+      <button id="btn-export-schedule" class="primary full mt" style="display:none">Export Schedule</button>
+    </section>
+
+    <section class="card" id="card-bench" style="display:none">
+      <h2>Bench</h2>
+      <div id="bench-content"></div>
+    </section>
+
+    <section class="card" id="card-end" style="display:none">
+      <button id="btn-end-session" class="danger full">End Session — View Results</button>
+    </section>
+  </main>
+
+  <div class="modal-overlay" id="modal-score">
+    <div class="modal">
+      <h3>Enter Score</h3>
+      <div class="score-inputs">
+        <input type="number" id="score-a" placeholder="A" min="0" max="99" />
+        <span class="vs-small">VS</span>
+        <input type="number" id="score-b" placeholder="B" min="0" max="99" />
+      </div>
+      <div class="modal-actions">
+        <button id="btn-cancel-score">Cancel</button>
+        <button id="btn-save-score" class="primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="export-target" style="position:fixed;top:-9999px;left:0;width:600px;background:#0A0A0A;color:#FFFFFF;padding:28px 32px;font-family:system-ui,sans-serif;text-align:center;box-sizing:border-box;">
+    <div style="color:#FFD700;font-size:13px;letter-spacing:5px;font-weight:800;text-transform:uppercase;margin-bottom:20px;">Voltura</div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:24px;margin:12px 0;">
+      <div style="flex:1;text-align:center;">
+        <div style="font-size:10px;color:#777;text-transform:uppercase;letter-spacing:3px;margin-bottom:10px;">Team A</div>
+        <div id="export-team-a" style="font-size:26px;font-weight:700;line-height:1.5;"></div>
+      </div>
+      <div style="color:#FFD700;font-size:22px;font-weight:800;text-shadow:0 0 12px rgba(255,215,0,0.3);">VS</div>
+      <div style="flex:1;text-align:center;">
+        <div style="font-size:10px;color:#777;text-transform:uppercase;letter-spacing:3px;margin-bottom:10px;">Team B</div>
+        <div id="export-team-b" style="font-size:26px;font-weight:700;line-height:1.5;"></div>
+      </div>
+    </div>
+    <div id="export-date" style="font-size:10px;color:#444;margin-top:16px;letter-spacing:1px;"></div>
+  </div>
+</Layout>
+
+<script>
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+    );
+  }
+
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  const KEY = 'voltura_session';
+  const PHOTO_KEY = 'voltura_photos';
+  function load() { const r = localStorage.getItem(KEY); return r ? JSON.parse(r) : null; }
+  function save(s) { localStorage.setItem(KEY, JSON.stringify(s)); }
+  function loadPhotos() { const r = localStorage.getItem(PHOTO_KEY); return r ? JSON.parse(r) : {}; }
+
+  let photos = {};
+
+  function photoImg(name, size) {
+    const s = size || 22;
+    const pic = photos[name];
+    const style = `display:inline-block;width:${s}px;height:${s}px;border-radius:50%;overflow:hidden;vertical-align:middle;margin:0 3px;border:1px solid var(--border);flex-shrink:0`;
+    if (pic) return `<span style="${style}"><img src="${pic}" style="width:100%;height:100%;object-fit:cover" /></span>`;
+    const colors = ['#FFD700','#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FFEAA7','#DDA0DD','#98D8C8'];
+    const ci = name.charCodeAt(0) % colors.length;
+    const fs = Math.max(8, Math.floor(s * 0.45));
+    return `<span style="${style};background:${colors[ci]};color:#0A0A0A;font-weight:700;font-size:${fs}px;text-align:center;line-height:${s}px;text-transform:uppercase">${name[0]}</span>`;
+  }
+
+  const MIN_PER_GAME = 9;
+
+  function calcRounds(dur) { return Math.max(1, Math.floor(dur / MIN_PER_GAME)); }
+
+  let s = null;
+
+  function ensureSchedule() {
+    if (!s) return;
+    const names = s.players.map((p) => p.name);
+    if (names.length < 4) return;
+
+    if (!s.schedule) { s.schedule = []; s.scheduleIdx = 0; }
+
+    if (s.scheduleIdx >= s.schedule.length && s.schedule.length > 0) {
+      const counts = {};
+      names.forEach((n) => { counts[n] = 0; });
+      s.schedule.forEach((r) => {
+        [...r.teamA, ...r.teamB].forEach((n) => { if (counts[n] !== undefined) counts[n]++; });
+      });
+      const EXTEND = 5;
+      for (let k = 0; k < EXTEND; k++) {
+        const sorted = shuffle(names).sort((a, b) => (counts[a] || 0) - (counts[b] || 0));
+        const pick = sorted.slice(0, 4);
+        const teams = shuffle(pick);
+        s.schedule.push({ teamA: [teams[0], teams[1]], teamB: [teams[2], teams[3]] });
+        pick.forEach((n) => { counts[n] = (counts[n] || 0) + 1; });
+      }
+    }
+
+    if (s.schedule.length === 0) {
+      const target = calcRounds(s.sessionDuration || 180);
+      const counts = {};
+      names.forEach((n) => { counts[n] = 0; });
+      while (s.schedule.length < target) {
+        const sorted = shuffle(names).sort((a, b) => (counts[a] || 0) - (counts[b] || 0));
+        const pick = sorted.slice(0, 4);
+        const teams = shuffle(pick);
+        s.schedule.push({ teamA: [teams[0], teams[1]], teamB: [teams[2], teams[3]] });
+        pick.forEach((n) => { counts[n] = (counts[n] || 0) + 1; });
+      }
+      s.scheduleIdx = 0;
+    }
+
+    s.activeMatch = s.schedule[s.scheduleIdx];
+  }
+
+  function refresh() {
+    s = load();
+    if (!s) return;
+    photos = loadPhotos();
+    if (s.sessionDuration == null) s.sessionDuration = 180;
+    if (s.players.length >= 4) {
+      ensureSchedule();
+      save(s);
+    }
+    render();
+  }
+
+  function persist() { save(s); render(); }
+
+  function render() {
+    const settingsCard = document.getElementById('card-settings');
+    if (s && s.players.length >= 4) {
+      settingsCard.style.display = '';
+      const input = document.getElementById('session-duration');
+      input.value = s.sessionDuration || 180;
+      if (s.durationLocked) {
+        lockDuration();
+      } else {
+        unlockDuration();
+      }
+    } else {
+      settingsCard.style.display = 'none';
+    }
+    renderCourt();
+    renderSchedule();
+    renderBench();
+    const endCard = document.getElementById('card-end');
+    endCard.style.display = (s && s.matches && s.matches.length > 0) ? '' : 'none';
+  }
+
+  function renderCourt() {
+    const el = document.getElementById('court-content');
+    const actions = document.getElementById('court-actions');
+    const label = document.getElementById('round-label');
+
+    if (s && s.activeMatch) {
+      const { teamA, teamB } = s.activeMatch;
+      const idx = s.scheduleIdx != null ? s.scheduleIdx + 1 : '';
+      label.textContent = idx ? `Round ${idx}/${s.schedule.length}` : '';
+      el.innerHTML = `<div class="teams">
+        <div class="team"><span class="team-label">Team A</span><span class="player">${photoImg(teamA[0],28)}${esc(teamA[0])}</span><span class="player">${photoImg(teamA[1],28)}${esc(teamA[1])}</span></div>
+        <span class="vs">VS</span>
+        <div class="team"><span class="team-label">Team B</span><span class="player">${photoImg(teamB[0],28)}${esc(teamB[0])}</span><span class="player">${photoImg(teamB[1],28)}${esc(teamB[1])}</span></div>
+      </div>`;
+      el.classList.remove('empty-state');
+      actions.style.display = '';
+    } else {
+      label.textContent = '';
+      const count = s ? s.players.length : 0;
+      if (count === 0) el.textContent = 'Add 4+ players in Roster to start';
+      else if (count < 4) el.textContent = `Need ${4 - count} more player(s)`;
+      else el.textContent = 'Generating schedule...';
+      el.classList.add('empty-state');
+      actions.style.display = 'none';
+    }
+  }
+
+  function renderSchedule() {
+    const card = document.getElementById('card-schedule');
+    const el = document.getElementById('schedule-content');
+
+    if (!s || !s.schedule || s.schedule.length === 0) {
+      card.style.display = 'none';
+      return;
+    }
+
+    card.style.display = '';
+    const idx = s.scheduleIdx || 0;
+    const PREVIEW = 5;
+    const remaining = s.schedule.length - idx;
+    const expanded = el.dataset.expanded === '1';
+    const limit = expanded ? remaining : Math.min(PREVIEW, remaining);
+    const hasMore = remaining > PREVIEW;
+
+    const totalMin = remaining * MIN_PER_GAME;
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    const dur = h > 0 ? `~${h}h ${m}m` : `~${m}m`;
+    document.getElementById('schedule-duration').textContent = `\u00b7 ${remaining} games left \u00b7 ${dur}`;
+
+    const playCounts = {};
+    s.players.forEach((p) => { playCounts[p.name] = 0; });
+    for (let i = 0; i < s.schedule.length; i++) {
+      const round = s.schedule[i];
+      [...round.teamA, ...round.teamB].forEach((n) => { if (playCounts[n] !== undefined) playCounts[n]++; });
+    }
+
+    let html = '<ul class="player-list">';
+    for (let i = idx; i < idx + limit; i++) {
+      const m = s.schedule[i];
+      const a = m.teamA.join('/');
+      const b = m.teamB.join('/');
+      const isNow = i === idx;
+      html += `<li style="${isNow ? 'border-color:var(--volt);background:var(--volt-dim)' : ''}">
+        <span style="font-size:0.78rem;flex:1;${isNow ? 'color:var(--volt);font-weight:700' : 'color:var(--text-dim)'}">
+          ${isNow ? '\u25b6 ' : ''}R${i + 1}: ${photoImg(m.teamA[0],18)}${esc(a)} <span style="color:var(--volt)">vs</span> ${photoImg(m.teamB[0],18)}${esc(b)}
+        </span>
+      </li>`;
+    }
+    html += '</ul>';
+
+    if (hasMore) {
+      html += `<button class="small full mt" id="btn-toggle-schedule">
+        ${expanded ? 'Show less' : `Show all ${remaining} rounds`}
+      </button>`;
+    }
+
+    const minPlays = Math.min(...Object.values(playCounts));
+    const maxPlays = Math.max(...Object.values(playCounts));
+    const range = minPlays === maxPlays ? `${minPlays} games each` : `${minPlays}–${maxPlays} games each`;
+    const totalRounds = s.schedule.length;
+    html += `<div style="font-size:0.65rem;color:var(--text-dim);margin-top:0.5rem;text-align:center;letter-spacing:0.06em;text-transform:uppercase">${range} \u00b7 ${totalRounds} rounds \u00b7 ${MIN_PER_GAME} min/game</div>`;
+
+    el.innerHTML = html;
+
+    const btn = el.querySelector('#btn-toggle-schedule');
+    if (btn) {
+      btn.addEventListener('click', () => {
+        el.dataset.expanded = expanded ? '0' : '1';
+        renderSchedule();
+      });
+    }
+
+    document.getElementById('btn-export-schedule').style.display = '';
+  }
+
+  function renderBench() {
+    const card = document.getElementById('card-bench');
+    const el = document.getElementById('bench-content');
+
+    if (!s || !s.activeMatch) { card.style.display = 'none'; return; }
+
+    const active = [...s.activeMatch.teamA, ...s.activeMatch.teamB];
+    const bench = s.players.map((p) => p.name).filter((n) => !active.includes(n));
+
+    if (bench.length === 0) { card.style.display = 'none'; return; }
+
+    card.style.display = '';
+    let html = '<ul class="player-list">';
+    bench.forEach((n) => {
+      html += `<li>${photoImg(n,22)}<span class="name">${esc(n)}</span><span class="rating-badge">${s.ratings[n] || 1000}</span></li>`;
+    });
+    html += '</ul>';
+    el.innerHTML = html;
+  }
+
+  // ── Score ──────────────────────────────────────────
+
+  function openScoreModal() {
+    document.getElementById('score-a').value = '';
+    document.getElementById('score-b').value = '';
+    document.getElementById('modal-score').classList.add('open');
+    document.getElementById('score-a').focus();
+  }
+
+  function closeScoreModal() {
+    document.getElementById('modal-score').classList.remove('open');
+  }
+
+  function saveScore() {
+    const a = document.getElementById('score-a').value;
+    const b = document.getElementById('score-b').value;
+    if (a === '' || b === '' || Number(a) < 0 || Number(b) < 0) return;
+    const scoreA = Number(a);
+    const scoreB = Number(b);
+
+    const { teamA, teamB } = s.activeMatch;
+    s.matches.push({ teamA: [...teamA], teamB: [...teamB], scoreA, scoreB });
+
+    const ra = (s.ratings[teamA[0]] + s.ratings[teamA[1]]) / 2;
+    const rb = (s.ratings[teamB[0]] + s.ratings[teamB[1]]) / 2;
+    const expectedA = 1 / (1 + Math.pow(10, (rb - ra) / 400));
+    const actualA = scoreA > scoreB ? 1 : 0;
+    const margin = Math.abs(scoreA - scoreB);
+    const K = Math.round(32 * (1 + Math.max(0, margin - 2) * 0.1));
+    const changeA = Math.round(K * (actualA - expectedA));
+    const changeB = -changeA;
+
+    teamA.forEach((n) => {
+      s.ratings[n] += changeA;
+      const st = s.playerStats[n];
+      st.gamesPlayed = (st.gamesPlayed || 0) + 1;
+      if (actualA) st.wins++; else st.losses++;
+    });
+    teamB.forEach((n) => {
+      s.ratings[n] += changeB;
+      const st = s.playerStats[n];
+      st.gamesPlayed = (st.gamesPlayed || 0) + 1;
+      if (!actualA) st.wins++; else st.losses++;
+    });
+
+    s.scheduleIdx = (s.scheduleIdx || 0) + 1;
+    ensureSchedule();
+    closeScoreModal();
+    persist();
+  }
+
+  function regenerateSchedule() {
+    if (!s || s.players.length < 4) return;
+    s.schedule = [];
+    s.scheduleIdx = 0;
+    s.activeMatch = null;
+    delete document.getElementById('schedule-content').dataset.expanded;
+    ensureSchedule();
+    persist();
+  }
+
+  async function exportSchedule() {
+    if (!s || !s.schedule || s.schedule.length === 0) return;
+
+    const btn = document.getElementById('btn-export-schedule');
+    btn.textContent = '...'; btn.disabled = true;
+
+    try {
+      const scheduleEl = document.getElementById('schedule-content');
+      const wasExpanded = scheduleEl.dataset.expanded === '1';
+      if (!wasExpanded) {
+        scheduleEl.dataset.expanded = '1';
+        renderSchedule();
+        await new Promise((r) => requestAnimationFrame(r));
+      }
+
+      const h2c = (await import('html2canvas')).default;
+      const canvas = await h2c(document.getElementById('card-schedule'), {
+        backgroundColor: '#0A0A0A', scale: 2, logging: false
+      });
+
+      if (!wasExpanded) {
+        scheduleEl.dataset.expanded = '0';
+        renderSchedule();
+      }
+
+      const blob = await new Promise((r) => canvas.toBlob(r, 'image/png'));
+      const file = new File([blob], 'voltura-schedule.png', { type: 'image/png' });
+      if (navigator.share) { try { await navigator.share({ files: [file], title: 'Voltura Schedule' }); } catch { dl(blob); } }
+      else dl(blob);
+    } catch (e) {
+      console.error(e);
+      Voltura.toast('Export failed');
+    }
+    btn.textContent = 'Export Schedule'; btn.disabled = false;
+  }
+
+  function dl(blob) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'voltura-schedule.png'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function lockDuration() {
+    const input = document.getElementById('session-duration');
+    const setBtn = document.getElementById('btn-set-duration');
+    const editBtn = document.getElementById('btn-edit-duration');
+    input.disabled = true;
+    input.style.opacity = '0.5';
+    setBtn.style.display = 'none';
+    editBtn.style.display = '';
+  }
+
+  function unlockDuration() {
+    const input = document.getElementById('session-duration');
+    const setBtn = document.getElementById('btn-set-duration');
+    const editBtn = document.getElementById('btn-edit-duration');
+    input.disabled = false;
+    input.style.opacity = '';
+    setBtn.style.display = '';
+    editBtn.style.display = 'none';
+  }
+
+  async function endSession() {
+    if (!s || s.matches.length === 0) return;
+    if (!(await Voltura.confirm('End this session and view the results?'))) return;
+    window.location.href = '/summary';
+  }
+
+  // ── Init ───────────────────────────────────────────
+
+  refresh();
+  document.getElementById('btn-finish').addEventListener('click', openScoreModal);
+  document.getElementById('btn-export-schedule').addEventListener('click', exportSchedule);
+  document.getElementById('btn-cancel-score').addEventListener('click', closeScoreModal);
+  document.getElementById('btn-save-score').addEventListener('click', saveScore);
+  document.getElementById('modal-score').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeScoreModal(); });
+
+  document.getElementById('btn-set-duration').addEventListener('click', () => {
+    const val = Number(document.getElementById('session-duration').value) || 180;
+    s.sessionDuration = val;
+    s.durationLocked = true;
+    s.schedule = []; s.scheduleIdx = 0; s.activeMatch = null;
+    ensureSchedule();
+    lockDuration();
+    persist();
+  });
+
+  document.getElementById('btn-edit-duration').addEventListener('click', async () => {
+    if (!(await Voltura.confirm('Changing session length will regenerate the schedule. Continue?'))) return;
+    s.durationLocked = false;
+    unlockDuration();
+  });
+
+  document.getElementById('btn-end-session').addEventListener('click', endSession);
+</script>
