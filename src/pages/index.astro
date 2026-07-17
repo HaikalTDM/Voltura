@@ -115,7 +115,7 @@ import Layout from '../layouts/Layout.astro';
 
   function ensureSchedule() {
     if (!s) return;
-    const names = s.players.map((p) => p.name);
+    const names = s.players.filter((p) => !p.left).map((p) => p.name);
     if (names.length < 4) return;
 
     if (!s.schedule) { s.schedule = []; s.scheduleIdx = 0; }
@@ -297,7 +297,7 @@ import Layout from '../layouts/Layout.astro';
     if (!s || !s.activeMatch) { card.style.display = 'none'; return; }
 
     const active = [...s.activeMatch.teamA, ...s.activeMatch.teamB];
-    const bench = s.players.map((p) => p.name).filter((n) => !active.includes(n));
+    const bench = s.players.filter((p) => !p.left && !active.includes(p.name)).map((p) => p.name);
 
     if (bench.length === 0) { card.style.display = 'none'; return; }
 
