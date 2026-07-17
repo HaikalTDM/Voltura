@@ -104,6 +104,7 @@ import Layout from '../layouts/Layout.astro';
   }
 
   refresh();
+  document.body.classList.add('ready');
   document.getElementById('cost-court').addEventListener('input', (e) => { s.courtCost = Number(e.target.value) || 0; persist(); });
   document.getElementById('cost-gear').addEventListener('input', (e) => { s.gearCost = Number(e.target.value) || 0; persist(); });
 </script>

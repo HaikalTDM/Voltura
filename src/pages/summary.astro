@@ -206,6 +206,7 @@ import Layout from '../layouts/Layout.astro';
   }
 
   refresh();
+  document.body.classList.add('ready');
 
   document.getElementById('btn-copy').addEventListener('click', () => {
     const text = document.getElementById('wrap-up-text').textContent;

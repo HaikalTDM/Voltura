@@ -437,6 +437,7 @@ import Layout from '../layouts/Layout.astro';
   // ── Init ───────────────────────────────────────────
 
   refresh();
+  document.body.classList.add('ready');
   document.getElementById('btn-finish').addEventListener('click', openScoreModal);
   document.getElementById('btn-export-schedule').addEventListener('click', exportSchedule);
   document.getElementById('btn-cancel-score').addEventListener('click', closeScoreModal);

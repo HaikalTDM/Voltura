@@ -177,6 +177,7 @@ import Layout from '../layouts/Layout.astro';
   }
 
   refresh();
+  document.body.classList.add('ready');
   document.getElementById('btn-add').addEventListener('click', addPlayer);
   document.getElementById('player-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') addPlayer(); });
   document.getElementById('btn-clear-roster').addEventListener('click', clearAll);
