@@ -50,7 +50,7 @@ import Layout from '../layouts/Layout.astro';
   function loadPhotos() { const r = localStorage.getItem(PHOTO_KEY); return r ? JSON.parse(r) : {}; }
   function savePhotos(p) { localStorage.setItem(PHOTO_KEY, JSON.stringify(p)); }
   function blank() {
-    return { id: Date.now().toString(), date: new Date().toISOString(), courtCost: 0, gearCost: 0, players: [], queue: [], activeMatch: null, matches: [], ratings: {}, playerStats: {}, schedule: null, scheduleIdx: null, sessionDuration: 180, status: 'active' };
+    return { id: Date.now().toString(), date: new Date().toISOString(), courtCost: 0, gearCost: 0, players: [], queue: [], activeMatches: [], matches: [], ratings: {}, playerStats: {}, schedule: null, scheduleIdx: null, sessionDuration: 180, courtCount: 1, status: 'active' };
   }
 
   let s = null;
@@ -112,7 +112,7 @@ import Layout from '../layouts/Layout.astro';
     quick.style.display = '';
 
     let inMatch = [];
-    if (s.activeMatch) inMatch = [...s.activeMatch.teamA, ...s.activeMatch.teamB];
+    if (s.activeMatches && s.activeMatches.length > 0) inMatch = s.activeMatches.flatMap((m) => [...m.teamA, ...m.teamB]);
 
     const colors = ['#FFD700','#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FFEAA7','#DDA0DD','#98D8C8'];
 
@@ -188,7 +188,7 @@ import Layout from '../layouts/Layout.astro';
         if (s.schedule && (s.scheduleIdx || 0) > 0) {
           s.schedule = s.schedule.slice(0, s.scheduleIdx);
         } else {
-          s.schedule = null; s.scheduleIdx = null; s.activeMatch = null;
+          s.schedule = null; s.scheduleIdx = null; s.activeMatches = [];
         }
         persist();
       });
@@ -206,7 +206,7 @@ import Layout from '../layouts/Layout.astro';
     if (s.schedule && (s.scheduleIdx || 0) > 0) {
       s.schedule = s.schedule.slice(0, s.scheduleIdx);
     } else {
-      s.schedule = null; s.scheduleIdx = null; s.activeMatch = null;
+      s.schedule = null; s.scheduleIdx = null; s.activeMatches = [];
     }
     input.value = '';
     persist();
@@ -268,7 +268,7 @@ import Layout from '../layouts/Layout.astro';
             s.playerStats[name] = { wins: 0, losses: 0 };
           }
         });
-        s.schedule = null; s.scheduleIdx = null; s.activeMatch = null;
+        s.schedule = null; s.scheduleIdx = null; s.activeMatches = [];
         persist();
       });
     });

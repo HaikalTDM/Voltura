@@ -38,7 +38,7 @@ import Layout from '../layouts/Layout.astro';
   function saveHistory(h) { localStorage.setItem(HIST_KEY, JSON.stringify(h)); }
 
   function blank() {
-    return { id: Date.now().toString(), date: new Date().toISOString(), courtCost: 0, gearCost: 0, players: [], queue: [], activeMatch: null, matches: [], ratings: {}, playerStats: {}, schedule: null, scheduleIdx: null, sessionDuration: 180, status: 'active' };
+    return { id: Date.now().toString(), date: new Date().toISOString(), courtCost: 0, gearCost: 0, players: [], queue: [], activeMatches: [], matches: [], ratings: {}, playerStats: {}, schedule: null, scheduleIdx: null, sessionDuration: 180, courtCount: 1, status: 'active' };
   }
 
   function totalCost(s) { return (Number(s.courtCost) || 0) + (Number(s.gearCost) || 0); }
@@ -51,6 +51,12 @@ import Layout from '../layouts/Layout.astro';
 
   function refresh() {
     s = load();
+    if (s) {
+      if (s.matches && s.matches.length > 0 && !Array.isArray(s.matches[0])) {
+        s.matches = s.matches.map((m) => [m]);
+      }
+      if (s.courtCount == null) s.courtCount = 1;
+    }
     render();
     renderHistory();
   }
@@ -103,10 +109,11 @@ import Layout from '../layouts/Layout.astro';
       ].join('\n');
     }
 
+    const totalGames = s.matches.reduce((sum, r) => sum + r.length, 0);
     const text = [
       `Voltura Session  \u2014  ${date}`,
       ``,
-      `${s.players.length} players  |  ${s.matches.length} game${s.matches.length !== 1 ? 's' : ''} played`,
+      `${s.players.length} players  |  ${totalGames} game${totalGames !== 1 ? 's' : ''} played`,
       mvpLine,
       statsTable,
       ``,
@@ -172,7 +179,7 @@ import Layout from '../layouts/Layout.astro';
       const realIdx = history.length - 1 - i;
       const date = new Date(h.date).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
       const players = h.players ? h.players.length : 0;
-      const games = h.matches ? h.matches.length : 0;
+      const games = h.matches ? (Array.isArray(h.matches[0]) ? h.matches.reduce((s, r) => s + r.length, 0) : h.matches.length) : 0;
       let mvpName = '';
       if (h.playerStats) {
         const best = Object.entries(h.playerStats).sort((a, b) => (b[1].wins || 0) - (a[1].wins || 0))[0];
