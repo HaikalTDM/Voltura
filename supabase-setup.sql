@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-ALTER TABLE sessions ENABLE REPLICA IDENTITY FULL;
+ALTER TABLE sessions REPLICA IDENTITY FULL;
 
 -- Enable realtime for this table
 ALTER PUBLICATION supabase_realtime ADD TABLE sessions;
