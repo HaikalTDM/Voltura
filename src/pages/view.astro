@@ -1,5 +1,6 @@
 ---
-// /view?id=SESSION_ID
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL || '';
+const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
 ---
 
 <!DOCTYPE html>
@@ -8,6 +9,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Voltura — Live</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <style>
     :root {
       --bg: #0A0A0A; --surface: #141414; --border: #2A2A2A;
@@ -78,88 +80,81 @@
     <h1><span class="live-dot"></span>Voltura Live</h1>
   </header>
   <div class="container" id="app">
-    <div class="empty">Loading session...</div>
+    <div class="empty">Connecting...</div>
   </div>
 
-  <script type="module">
+  <script>
+    const SUPABASE_URL = {JSON.stringify(supabaseUrl)};
+    const SUPABASE_KEY = {JSON.stringify(supabaseKey)};
 
-    const params = new URLSearchParams(window.location.search);
-    const id = params.get('id');
-    const app = document.getElementById('app');
+    if (!SUPABASE_URL || !SUPABASE_KEY) {
+      document.getElementById('app').innerHTML = '<div class="empty">Sharing not configured.</div>';
+    } else {
+      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get('id');
+      const app = document.getElementById('app');
 
-    if (!id) { app.innerHTML = '<div class="empty">No session ID provided</div>'; }
+      if (!id) { app.innerHTML = '<div class="empty">No session ID</div>'; }
 
-    function esc(s) {
-      return String(s).replace(/[&<>"']/g, c =>
-        ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
-    }
-
-    function render(s) {
-      if (!s) { app.innerHTML = '<div class="empty">Session not found</div>'; return; }
-      const courts = s.courtCount || 1;
-      const active = s.activeMatches || [];
-      const schedule = s.schedule || [];
-      const idx = s.scheduleIdx || 0;
-      const recent = (s.matches || []).slice(-3).reverse();
-      const dur = s.sessionDuration || 180;
-      const h = Math.floor(dur / 60); const m = dur % 60;
-
-      let courtHtml = '';
-      if (active.length > 0) {
-        active.forEach((m, i) => {
-          courtHtml += `<div class="court-lane">
-            <div class="court-label">Court ${i + 1}</div>
-            <div class="teams">
-              <div class="team"><span class="player">${esc(m.teamA[0])}</span><span class="player">${esc(m.teamA[1])}</span></div>
-              <span class="vs">VS</span>
-              <div class="team"><span class="player">${esc(m.teamB[0])}</span><span class="player">${esc(m.teamB[1])}</span></div>
-            </div>
-          </div>`;
-        });
-      } else if (s.players.length < courts * 4) {
-        courtHtml = '<div class="empty">Waiting for players...</div>';
-      } else {
-        courtHtml = '<div class="empty">Round ended — next round loading...</div>';
+      function esc(s) {
+        return String(s).replace(/[&<>"']/g, c =>
+          ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
       }
 
-      let scheduleHtml = '';
-      for (let i = idx; i < Math.min(idx + 5, schedule.length); i++) {
-        const round = schedule[i];
-        const parts = round.map((m, ci) => {
-          const a = m.teamA.join('/'); const b = m.teamB.join('/');
-          return (courts > 1 ? `C${ci+1} ` : '') + `${esc(a)} vs ${esc(b)}`;
-        });
-        scheduleHtml += `<li class="${i===idx?'active':''}">${i===idx?'▶ ':''}R${i+1}: ${parts.join(' · ')}</li>`;
-      }
+      function render(s) {
+        if (!s) { app.innerHTML = '<div class="empty">Waiting for host to share...</div>'; return; }
+        const courts = s.courtCount || 1;
+        const active = s.activeMatches || [];
+        const schedule = s.schedule || [];
+        const idx = s.scheduleIdx || 0;
+        const recent = (s.matches || []).slice(-3).reverse();
+        const dur = s.sessionDuration || 180;
+        const h = Math.floor(dur / 60); const m = dur % 60;
 
-      let recentHtml = '';
-      recent.forEach((round) => {
-        round.forEach((m) => {
-          recentHtml += `<li>${esc(m.teamA.join('/'))} ${m.scoreA} - ${m.scoreB} ${esc(m.teamB.join('/'))}</li>`;
-        });
-      });
-
-      app.innerHTML = `
-        <div class="card"><h2>Active Courts — Round ${idx+1}/${schedule.length}</h2>${courtHtml}</div>
-        <div class="card"><h2>Upcoming</h2>${scheduleHtml?`<ul class="round-list">${scheduleHtml}</ul>`:'<div class="empty">No schedule</div>'}</div>
-        ${recentHtml?`<div class="card"><h2>Recent Scores</h2><ul class="round-list">${recentHtml}</ul></div>`:''}
-        <div class="card"><div class="stat-row"><span>${s.players.length}</span> players <span>${courts}</span> court${courts>1?'s':''} <span>${h>0?h+'h ':''}${m}m</span></div></div>`;
-    }
-
-    if (id) {
-      try {
-        const mod = await import('../lib/supabase.js');
-        if (!mod.isConfigured()) {
-          app.innerHTML = '<div class="empty">Sharing not configured. The host needs to set up Supabase.</div>';
+        let courtHtml = '';
+        if (active.length > 0) {
+          active.forEach((m, i) => {
+            courtHtml += '<div class="court-lane"><div class="court-label">Court ' + (i+1) + '</div><div class="teams"><div class="team"><span class="player">' + esc(m.teamA[0]) + '</span><span class="player">' + esc(m.teamA[1]) + '</span></div><span class="vs">VS</span><div class="team"><span class="player">' + esc(m.teamB[0]) + '</span><span class="player">' + esc(m.teamB[1]) + '</span></div></div></div>';
+          });
         } else {
-          const initial = await mod.getSession(id);
-          if (!initial) app.innerHTML = '<div class="empty">Session not found. Ask the host to tap Share again.</div>';
-          else render(initial);
-          mod.subscribeSession(id, render);
+          courtHtml = '<div class="empty">Waiting for matches...</div>';
         }
-      } catch (e) {
-        console.error(e);
-        app.innerHTML = `<div class="empty">Connection failed: ${e.message}</div>`;
+
+        let scheduleHtml = '';
+        for (let i = idx; i < Math.min(idx + 5, schedule.length); i++) {
+          const round = schedule[i];
+          const parts = round.map(function(m, ci) {
+            const a = m.teamA.join('/'); const b = m.teamB.join('/');
+            return (courts > 1 ? 'C'+(ci+1)+' ' : '') + esc(a) + ' vs ' + esc(b);
+          });
+          scheduleHtml += '<li class="' + (i===idx?'active':'') + '">' + (i===idx?'▶ ':'') + 'R'+(i+1)+': ' + parts.join(' · ') + '</li>';
+        }
+
+        let recentHtml = '';
+        recent.forEach(function(round) {
+          round.forEach(function(m) {
+            recentHtml += '<li>' + esc(m.teamA.join('/')) + ' ' + m.scoreA + ' - ' + m.scoreB + ' ' + esc(m.teamB.join('/')) + '</li>';
+          });
+        });
+
+        app.innerHTML = '<div class="card"><h2>Active Courts — Round ' + (idx+1) + '/' + schedule.length + '</h2>' + courtHtml + '</div>' +
+          '<div class="card"><h2>Upcoming</h2>' + (scheduleHtml ? '<ul class="round-list">' + scheduleHtml + '</ul>' : '<div class="empty">No schedule</div>') + '</div>' +
+          (recentHtml ? '<div class="card"><h2>Recent Scores</h2><ul class="round-list">' + recentHtml + '</ul></div>' : '') +
+          '<div class="card"><div class="stat-row"><span>' + s.players.length + '</span> players <span>' + courts + '</span> court' + (courts>1?'s':'') + ' <span>' + (h>0?h+'h ':'') + m + 'm</span></div></div>';
+      }
+
+      if (id) {
+        supabase.from('sessions').select('data').eq('id', id).single().then(function(res) {
+          if (res.data) render(res.data.data);
+          else app.innerHTML = '<div class="empty">Waiting for host to share...</div>';
+
+          supabase.channel('session-' + id).on('postgres_changes', { event: '*', schema: 'public', table: 'sessions', filter: 'id=eq.' + id }, function(payload) {
+            render(payload.new ? payload.new.data : null);
+          }).subscribe();
+        }).catch(function() {
+          app.innerHTML = '<div class="empty">Connection error. Check your internet.</div>';
+        });
       }
     }
   </script>
