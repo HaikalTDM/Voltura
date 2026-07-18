@@ -163,6 +163,9 @@ import Layout from '../layouts/Layout.astro';
     if (s.matches && s.matches.length > 0 && !Array.isArray(s.matches[0])) {
       s.matches = s.matches.map((m) => [m]);
     }
+    if (s.schedule && s.schedule.length > 0 && !Array.isArray(s.schedule[0])) {
+      s.schedule = s.schedule.map((r) => [r]);
+    }
     if (s.players.length >= s.courtCount * 4) {
       ensureSchedule();
       save(s);

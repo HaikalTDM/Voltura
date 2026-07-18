@@ -15,6 +15,7 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
+  if (!e.request.url.startsWith('http')) return;
   e.respondWith(
     caches.open(CACHE).then((cache) =>
       cache.match(e.request).then((cached) => {
