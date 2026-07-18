@@ -432,7 +432,6 @@ button.small {
   padding: 1.5rem;
   width: 320px;
   max-width: 90vw;
-  box-shadow: 0 0 30px var(--volt-glow);
 }
 
 .modal h3 {
@@ -521,3 +520,23 @@ pre.wrap-up {
   transform: translateY(0);
   opacity: 1;
 }
+
+/* ---- Court Lanes ---- */
+
+.court-lane {
+  border-left: 3px solid var(--volt);
+  padding: 1rem 1rem 1rem 1.2rem;
+  margin-bottom: 1rem;
+  background: rgba(255, 215, 0, 0.04);
+  box-shadow: 0 1px 6px rgba(0,0,0,0.3);
+}
+.court-lane:last-child { margin-bottom: 0; }
+.court-label {
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--volt);
+  margin-bottom: 0.75rem;
+  text-align: center;
+}
+.court-lane .player { padding: 0.2rem 0; }

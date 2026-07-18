@@ -10,6 +10,7 @@ import Layout from '../layouts/Layout.astro';
       <div class="row mt" style="gap:0.5rem;display:none" id="court-actions">
         <button id="btn-finish" class="primary" style="flex:1">Finish Round</button>
         <button id="btn-undo" class="small" style="display:none">Undo</button>
+        <button id="btn-share" class="small">Share</button>
       </div>
     </section>
 
@@ -54,9 +55,23 @@ import Layout from '../layouts/Layout.astro';
       </div>
     </div>
   </div>
+
+  <div class="modal-overlay" id="modal-share">
+    <div class="modal" style="text-align:center">
+      <h3>Share Live View</h3>
+      <img id="qr-image" src="" style="width:200px;height:200px;margin:0 auto;display:block;background:var(--bg);border:1px solid var(--border)" alt="QR Code" />
+      <div style="font-size:0.7rem;color:var(--text-dim);margin-top:0.5rem;word-break:break-all" id="share-url"></div>
+      <div class="row" style="gap:0.5rem;margin-top:0.75rem;justify-content:center">
+        <button id="btn-copy-link" class="small">Copy Link</button>
+        <button id="btn-close-share" class="small">Close</button>
+      </div>
+    </div>
+  </div>
 </Layout>
 
 <script>
+  import { pushSession, isConfigured } from '../lib/supabase.js';
+
   function esc(s) {
     return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   }
@@ -172,9 +187,18 @@ import Layout from '../layouts/Layout.astro';
     }
     render();
     document.body.classList.add('ready');
+    if (s.shareId) shareId = s.shareId;
   }
 
-  function persist() { save(s); render(); }
+  function persist() { save(s); render(); syncToSupabase(); }
+  let shareId = null;
+
+  async function syncToSupabase() {
+    if (!shareId || !s) return;
+    const clean = { ...s };
+    delete clean.id;
+    pushSession(shareId, clean);
+  }
 
   function render() {
     renderCourt();
@@ -441,6 +465,34 @@ import Layout from '../layouts/Layout.astro';
   }
   function dl(blob) { const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'voltura-schedule.png'; a.click(); URL.revokeObjectURL(url); }
 
+  async function openShare() {
+    if (!s || s.players.length < 4) return;
+    if (!isConfigured()) { Voltura.toast('Supabase not configured. Add your keys in .env'); return; }
+    if (shareId) { showQR(shareId); return; }
+    shareId = crypto.randomUUID();
+    s.shareId = shareId;
+    save(s);
+    await syncToSupabase();
+    showQR(shareId);
+  }
+
+  function showQR(id) {
+    const url = `${window.location.origin}/view?id=${id}`;
+    document.getElementById('qr-image').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
+    document.getElementById('share-url').textContent = url;
+    document.getElementById('modal-share').classList.add('open');
+    document.getElementById('btn-share').textContent = 'Shared';
+  }
+
+  function closeShare() {
+    document.getElementById('modal-share').classList.remove('open');
+  }
+
+  function copyShareLink() {
+    const url = document.getElementById('share-url').textContent;
+    navigator.clipboard.writeText(url).then(() => Voltura.toast('Link copied!'));
+  }
+
   refresh();
   document.getElementById('btn-finish').addEventListener('click', openScoreModal);
   document.getElementById('btn-undo').addEventListener('click', undoLast);
@@ -459,6 +511,10 @@ import Layout from '../layouts/Layout.astro';
     s.durationLocked = false; unlockDuration();
   });
   document.getElementById('btn-end-session').addEventListener('click', endSession);
+  document.getElementById('btn-share').addEventListener('click', openShare);
+  document.getElementById('btn-copy-link').addEventListener('click', copyShareLink);
+  document.getElementById('btn-close-share').addEventListener('click', closeShare);
+  document.getElementById('modal-share').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeShare(); });
   document.getElementById('court-count').addEventListener('change', () => {
     const cc = Math.max(1, Math.min(4, Number(document.getElementById('court-count').value) || 1));
     s.courtCount = cc;
@@ -468,24 +524,3 @@ import Layout from '../layouts/Layout.astro';
     persist();
   });
 </script>
-
-<style>
-  .court-lane {
-    border: 1px solid var(--border);
-    padding: 1.2rem 1rem;
-    margin-bottom: 1.2rem;
-    background: var(--bg);
-  }
-  .court-lane:last-child { margin-bottom: 0; }
-  .court-label {
-    font-size: 0.55rem;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: var(--volt);
-    margin-bottom: 0.75rem;
-    text-align: center;
-  }
-  .court-lane .player {
-    padding: 0.2rem 0;
-  }
-</style>
