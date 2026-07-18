@@ -82,7 +82,6 @@
   </div>
 
   <script type="module">
-    import { getSession, subscribeSession } from '../lib/supabase.js';
 
     const params = new URLSearchParams(window.location.search);
     const id = params.get('id');
@@ -149,13 +148,18 @@
 
     if (id) {
       try {
-        const initial = await getSession(id);
-        if (!initial) app.innerHTML = '<div class="empty">Session not found. The host may need to re-share.</div>';
-        else render(initial);
-        subscribeSession(id, render);
+        const mod = await import('../lib/supabase.js');
+        if (!mod.isConfigured()) {
+          app.innerHTML = '<div class="empty">Sharing not configured. The host needs to set up Supabase.</div>';
+        } else {
+          const initial = await mod.getSession(id);
+          if (!initial) app.innerHTML = '<div class="empty">Session not found. Ask the host to tap Share again.</div>';
+          else render(initial);
+          mod.subscribeSession(id, render);
+        }
       } catch (e) {
         console.error(e);
-        app.innerHTML = '<div class="empty">Failed to connect. Check your internet.</div>';
+        app.innerHTML = `<div class="empty">Connection failed: ${e.message}</div>`;
       }
     }
   </script>
