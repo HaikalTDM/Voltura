@@ -148,9 +148,15 @@
     }
 
     if (id) {
-      const initial = await getSession(id);
-      render(initial);
-      subscribeSession(id, render);
+      try {
+        const initial = await getSession(id);
+        if (!initial) app.innerHTML = '<div class="empty">Session not found. The host may need to re-share.</div>';
+        else render(initial);
+        subscribeSession(id, render);
+      } catch (e) {
+        console.error(e);
+        app.innerHTML = '<div class="empty">Failed to connect. Check your internet.</div>';
+      }
     }
   </script>
 </body>

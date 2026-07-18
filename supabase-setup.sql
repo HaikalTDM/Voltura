@@ -9,6 +9,9 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 
 ALTER TABLE sessions REPLICA IDENTITY FULL;
-
--- Enable realtime for this table
 ALTER PUBLICATION supabase_realtime ADD TABLE sessions;
+
+-- Allow anonymous read/write (this is a public sharing app)
+CREATE POLICY "anon_read" ON sessions FOR SELECT USING (true);
+CREATE POLICY "anon_insert" ON sessions FOR INSERT WITH CHECK (true);
+CREATE POLICY "anon_update" ON sessions FOR UPDATE USING (true);
