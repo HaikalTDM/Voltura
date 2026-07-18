@@ -308,8 +308,13 @@ import Layout from '../layouts/Layout.astro';
     const el = document.getElementById('score-courts');
     let html = '';
     s.activeMatches.forEach((m, i) => {
-      html += `<div style="margin-bottom:0.75rem">
-        <div style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-dim);margin-bottom:0.25rem">Court ${i + 1}</div>
+      html += `<div style="margin-bottom:1rem;border-bottom:1px solid var(--border);padding-bottom:0.75rem">
+        <div style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--volt);margin-bottom:0.35rem">Court ${i + 1}</div>
+        <div style="font-size:0.75rem;text-align:center;margin-bottom:0.5rem">
+          <span style="color:var(--text);font-weight:600">${esc(m.teamA[0])} / ${esc(m.teamA[1])}</span>
+          <span style="color:var(--volt);margin:0 0.5rem;font-weight:700">vs</span>
+          <span style="color:var(--text);font-weight:600">${esc(m.teamB[0])} / ${esc(m.teamB[1])}</span>
+        </div>
         <div class="score-inputs" style="grid-template-columns:1fr auto 1fr;gap:0.4rem">
           <input type="number" class="score-in" data-court="${i}" data-team="a" placeholder="A" min="0" max="99" />
           <span class="vs-small">VS</span>
@@ -467,16 +472,17 @@ import Layout from '../layouts/Layout.astro';
 <style>
   .court-lane {
     border: 1px solid var(--border);
-    padding: 0.6rem;
-    margin-bottom: 0.5rem;
+    padding: 1rem 0.8rem;
+    margin-bottom: 1rem;
+    background: var(--bg);
   }
   .court-lane:last-child { margin-bottom: 0; }
   .court-label {
     font-size: 0.55rem;
     text-transform: uppercase;
     letter-spacing: 0.12em;
-    color: var(--text-dim);
-    margin-bottom: 0.4rem;
+    color: var(--volt);
+    margin-bottom: 0.5rem;
     text-align: center;
   }
 </style>
