@@ -152,7 +152,7 @@ import Layout from '../layouts/Layout.astro';
 
   function refresh() {
     s = load();
-    if (!s) return;
+    if (!s) { document.body.classList.add('ready'); return; }
     photos = loadPhotos();
     if (s.sessionDuration == null) s.sessionDuration = 180;
     if (s.courtCount == null) s.courtCount = 1;
@@ -168,6 +168,7 @@ import Layout from '../layouts/Layout.astro';
       save(s);
     }
     render();
+    document.body.classList.add('ready');
   }
 
   function persist() { save(s); render(); }
