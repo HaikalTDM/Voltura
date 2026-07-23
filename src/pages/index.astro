@@ -9,6 +9,7 @@ import Layout from '../layouts/Layout.astro';
       <div id="court-content" class="empty-state">Add 4+ players per court in Roster to start</div>
       <div class="row mt" style="gap:0.5rem;display:none" id="court-actions">
         <button id="btn-finish" class="primary" style="flex:1">Finish Round</button>
+        <button id="btn-rebalance" class="small">Rebalance</button>
         <button id="btn-undo" class="small" style="display:none">Undo</button>
         <button id="btn-share" class="small">Share</button>
       </div>
@@ -52,6 +53,16 @@ import Layout from '../layouts/Layout.astro';
       <div class="modal-actions" style="margin-top:0.75rem">
         <button id="btn-cancel-score">Cancel</button>
         <button id="btn-save-score" class="primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-rebalance">
+    <div class="modal" style="text-align:center">
+      <h3>Rebalance Court</h3>
+      <div id="rebalance-courts" style="margin:0.75rem 0"></div>
+      <div class="modal-actions" style="justify-content:center">
+        <button id="btn-cancel-rebalance">Cancel</button>
       </div>
     </div>
   </div>
@@ -419,6 +430,46 @@ import Layout from '../layouts/Layout.astro';
     persist();
   }
 
+  function openRebalanceModal() {
+    if (!s || !s.activeMatches || s.activeMatches.length === 0) return;
+    const el = document.getElementById('rebalance-courts');
+    let html = '';
+    const courts = s.courtCount || 1;
+    for (let c = 0; c < courts; c++) {
+      const m = s.activeMatches[c];
+      if (!m) continue;
+      html += `<button class="small full" style="margin-bottom:0.5rem;padding:0.75rem;text-align:center" data-court="${c}">
+        <span style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--volt);margin-bottom:0.25rem;display:block">Court ${c + 1}</span>
+        <span style="font-size:0.8rem;color:var(--text)">${esc(m.teamA[0])} / ${esc(m.teamA[1])} <span style="color:var(--volt)">vs</span> ${esc(m.teamB[0])} / ${esc(m.teamB[1])}</span>
+      </button>`;
+    }
+    el.innerHTML = html;
+    document.getElementById('modal-rebalance').classList.add('open');
+    el.querySelectorAll('button').forEach((btn) => {
+      btn.addEventListener('click', () => rebalanceCourt(Number(btn.dataset.court)));
+    });
+  }
+
+  function closeRebalanceModal() { document.getElementById('modal-rebalance').classList.remove('open'); }
+
+  function rebalanceCourt(courtIdx) {
+    if (!s || !s.activeMatches || !s.activeMatches[courtIdx]) return;
+    const m = s.activeMatches[courtIdx];
+    const players = shuffle([...m.teamA, ...m.teamB]);
+    m.teamA = [players[0], players[1]];
+    m.teamB = [players[2], players[3]];
+    // Update the current round in the schedule too
+    if (s.schedule && s.scheduleIdx != null) {
+      s.schedule[s.scheduleIdx] = s.activeMatches.map((sm) => ({
+        teamA: [...sm.teamA],
+        teamB: [...sm.teamB]
+      }));
+    }
+    closeRebalanceModal();
+    persist();
+    Voltura.toast(`Court ${courtIdx + 1} shuffled`);
+  }
+
   function regenerateSchedule() {
     if (!s || s.players.length < (s.courtCount || 1) * 4) return;
     s.schedule = []; s.scheduleIdx = 0; s.activeMatches = [];
@@ -495,8 +546,11 @@ import Layout from '../layouts/Layout.astro';
 
   refresh();
   document.getElementById('btn-finish').addEventListener('click', openScoreModal);
+  document.getElementById('btn-rebalance').addEventListener('click', openRebalanceModal);
   document.getElementById('btn-undo').addEventListener('click', undoLast);
   document.getElementById('btn-export-schedule').addEventListener('click', exportSchedule);
+  document.getElementById('btn-cancel-rebalance').addEventListener('click', closeRebalanceModal);
+  document.getElementById('modal-rebalance').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeRebalanceModal(); });
   document.getElementById('btn-cancel-score').addEventListener('click', closeScoreModal);
   document.getElementById('btn-save-score').addEventListener('click', saveScore);
   document.getElementById('modal-score').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeScoreModal(); });

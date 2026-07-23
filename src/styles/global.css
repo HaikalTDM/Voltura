@@ -1,28 +1,28 @@
 :root {
-  --bg: #0A0A0A;
-  --surface: #141414;
-  --border: #2A2A2A;
-  --volt: #FFD700;
-  --volt-glow: rgba(255, 215, 0, 0.25);
-  --volt-dim: rgba(255, 215, 0, 0.08);
-  --text: #FFFFFF;
-  --text-dim: #777777;
-  --danger: #FF3B3B;
-  --success: #3BFF6B;
+  --bg: #1E1E20;
+  --surface: #2A2A2D;
+  --border: #3A3A3E;
+  --volt: #E8C547;
+  --volt-glow: rgba(232, 197, 71, 0.2);
+  --volt-dim: rgba(232, 197, 71, 0.07);
+  --text: #F5F3EF;
+  --text-dim: #8A8A90;
+  --danger: #E05555;
+  --success: #4CAF6B;
   --nav-height: 4rem;
 }
 
 [data-theme="light"] {
-  --bg: #F5F5F5;
+  --bg: #F5F3EF;
   --surface: #FFFFFF;
-  --border: #E0E0E0;
-  --volt: #D4A800;
-  --volt-glow: rgba(180, 140, 0, 0.2);
-  --volt-dim: rgba(180, 140, 0, 0.06);
-  --text: #111111;
-  --text-dim: #888888;
-  --danger: #D32F2F;
-  --success: #2E7D32;
+  --border: #E2DFD8;
+  --volt: #C9A020;
+  --volt-glow: rgba(201, 160, 32, 0.12);
+  --volt-dim: rgba(201, 160, 32, 0.05);
+  --text: #1E1E20;
+  --text-dim: #7A7A82;
+  --danger: #C0392B;
+  --success: #3D8B4F;
 }
 
 *,
@@ -247,7 +247,7 @@ button.small {
 .rating-badge {
   font-size: 0.65rem;
   color: var(--volt);
-  background: rgba(255, 215, 0, 0.08);
+  background: var(--volt-dim);
   padding: 0.1rem 0.4rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -527,7 +527,7 @@ pre.wrap-up {
   border-left: 3px solid var(--volt);
   padding: 1rem 1rem 1rem 1.2rem;
   margin-bottom: 1rem;
-  background: rgba(255, 215, 0, 0.04);
+  background: var(--volt-dim);
   box-shadow: 0 1px 6px rgba(0,0,0,0.3);
 }
 .court-lane:last-child { margin-bottom: 0; }

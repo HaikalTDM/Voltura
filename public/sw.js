@@ -1,4 +1,4 @@
-const CACHE = 'voltura-v1';
+const CACHE = 'voltura-v2';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
